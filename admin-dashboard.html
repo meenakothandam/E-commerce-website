@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin overview — Shoply</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<nav class="topnav" id="topnav"></nav>
+
+<div class="admin-shell">
+  <aside class="admin-side" id="admin-side"></aside>
+  <main class="admin-main">
+    <div class="section-title">
+      <h2 style="font-family:var(--font-display); font-size:1.6rem;">Overview</h2>
+    </div>
+
+    <div class="stat-grid">
+      <div class="card stat-card">
+        <div class="label">Products</div>
+        <div class="value" id="stat-products">0</div>
+      </div>
+      <div class="card stat-card">
+        <div class="label">Customers</div>
+        <div class="value" id="stat-customers">0</div>
+      </div>
+      <div class="card stat-card">
+        <div class="label">Orders placed</div>
+        <div class="value" id="stat-orders">0</div>
+      </div>
+    </div>
+
+    <div class="section-title">
+      <h2>Recent orders</h2>
+      <a href="admin-orders.html" class="btn btn-ghost small">View all</a>
+    </div>
+    <div class="card" style="padding:4px 6px; overflow-x:auto;">
+      <table id="recent-orders-table"></table>
+    </div>
+  </main>
+</div>
+
+<script src="js/app.js"></script>
+<script>
+  const session = Auth.requireRole('admin');
+
+  if(session){
+    renderAdminNav();
+    renderAdminSidebar('overview');
+
+    const products = Store.getProducts();
+    const customers = Store.getUsers().filter(u => u.role === 'user');
+    const orders = Store.getOrders().sort((a,b) => new Date(b.date) - new Date(a.date));
+
+    document.getElementById('stat-products').textContent = products.length;
+    document.getElementById('stat-customers').textContent = customers.length;
+    document.getElementById('stat-orders').textContent = orders.length;
+
+    const table = document.getElementById('recent-orders-table');
+    if(orders.length === 0){
+      table.outerHTML = `<div class="empty-state"><div class="glyph">🧾</div>No orders placed yet.</div>`;
+    } else {
+      const recent = orders.slice(0, 8);
+      table.innerHTML = `
+        <thead><tr><th>Order</th><th>Customer</th><th>Items</th><th>Total</th><th>Status</th><th>Date</th></tr></thead>
+        <tbody>
+          ${recent.map(o => `
+            <tr>
+              <td class="mono">${orderCode(o.id)}</td>
+              <td>${escapeHtml(o.customerName)}</td>
+              <td>${o.items.reduce((s,i)=>s+i.qty,0)} item(s)</td>
+              <td class="mono">${formatPrice(o.total)}</td>
+              <td><span class="badge ${o.status.toLowerCase()}">${o.status}</span></td>
+              <td style="color:var(--muted); font-size:.82rem;">${formatDate(o.date)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      `;
+    }
+  }
+</script>
+</body>
+</html>

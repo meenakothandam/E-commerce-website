@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Orders — Shoply Admin</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<nav class="topnav" id="topnav"></nav>
+
+<div class="admin-shell">
+  <aside class="admin-side" id="admin-side"></aside>
+  <main class="admin-main">
+    <div class="section-title">
+      <h2 style="font-family:var(--font-display); font-size:1.6rem;">All orders</h2>
+      <div class="sub" id="order-count" style="color:var(--muted); font-size:.88rem;"></div>
+    </div>
+
+    <div class="toolbar">
+      <select id="status-filter">
+        <option value="all">All statuses</option>
+        <option value="Placed">Placed</option>
+        <option value="Shipped">Shipped</option>
+        <option value="Delivered">Delivered</option>
+        <option value="Cancelled">Cancelled</option>
+      </select>
+    </div>
+
+    <div id="orders-wrap"></div>
+  </main>
+</div>
+
+<script src="js/app.js"></script>
+<script>
+  const session = Auth.requireRole('admin');
+
+  if(session){
+    renderAdminNav();
+    renderAdminSidebar('orders');
+
+    const statusFilter = document.getElementById('status-filter');
+    const wrap = document.getElementById('orders-wrap');
+    const orderCount = document.getElementById('order-count');
+    const statuses = ['Placed','Shipped','Delivered','Cancelled'];
+
+    function render(){
+      const filter = statusFilter.value;
+      const orders = Store.getOrders()
+        .filter(o => filter === 'all' || o.status === filter)
+        .sort((a,b) => new Date(b.date) - new Date(a.date));
+
+      orderCount.textContent = `${orders.length} order(s)`;
+
+      if(orders.length === 0){
+        wrap.innerHTML = `<div class="empty-state"><div class="glyph">🧾</div>No orders match this filter.</div>`;
+        return;
+      }
+
+      wrap.innerHTML = `
+        <div class="card" style="padding:4px 6px; overflow-x:auto;">
+          <table>
+            <thead>
+              <tr><th>Order</th><th>Customer</th><th>Items</th><th>Address</th><th>Total</th><th>Status</th><th>Date</th></tr>
+            </thead>
+            <tbody>
+              ${orders.map(o => `
+                <tr>
+                  <td class="mono">${orderCode(o.id)}</td>
+                  <td>
+                    ${escapeHtml(o.customerName)}<br>
+                    <span style="color:var(--muted); font-size:.78rem;">${escapeHtml(o.phone)}</span>
+                  </td>
+                  <td>${o.items.map(i => escapeHtml(i.name) + ' ×' + i.qty).join('<br>')}</td>
+                  <td style="max-width:180px; font-size:.8rem; color:var(--muted);">${escapeHtml(o.address)}</td>
+                  <td class="mono">${formatPrice(o.total)}</td>
+                  <td>
+                    <select class="status-select" data-id="${o.id}" style="padding:6px 8px; font-size:.8rem;">
+                      ${statuses.map(s => `<option value="${s}" ${s===o.status?'selected':''}>${s}</option>`).join('')}
+                    </select>
+                  </td>
+                  <td style="color:var(--muted); font-size:.8rem;">${formatDate(o.date)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      wrap.querySelectorAll('.status-select').forEach(sel => {
+        sel.addEventListener('change', (e) => {
+          const orders = Store.getOrders();
+          const order = orders.find(o => o.id === e.target.dataset.id);
+          if(order){
+            order.status = e.target.value;
+            Store.saveOrders(orders);
+            toast(`${orderCode(order.id)} marked as ${order.status}`);
+          }
+        });
+      });
+    }
+
+    statusFilter.addEventListener('change', render);
+    render();
+  }
+</script>
+</body>
+</html>

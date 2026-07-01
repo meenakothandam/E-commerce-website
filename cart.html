@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Your cart — Shoply</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<nav class="topnav" id="topnav"></nav>
+
+<main class="wrap">
+  <div class="page-head">
+    <div>
+      <h1>Your cart</h1>
+      <div class="sub" id="cart-sub"></div>
+    </div>
+  </div>
+  <div id="cart-content"></div>
+</main>
+
+<script src="js/app.js"></script>
+<script>
+  const session = Auth.requireRole('user');
+
+  if(session){
+    renderUserNav('cart');
+    renderCart();
+
+    function renderCart(){
+      const items = Store.getCartFor(session.userId);
+      const products = Store.getProducts();
+      const content = document.getElementById('cart-content');
+      const sub = document.getElementById('cart-sub');
+
+      const rows = items.map(item => {
+        const p = products.find(pr => pr.id === item.productId);
+        return p ? { ...item, product: p } : null;
+      }).filter(Boolean);
+
+      sub.textContent = rows.length ? `${rows.reduce((s,r)=>s+r.qty,0)} item(s) in your cart` : '';
+
+      if(rows.length === 0){
+        content.innerHTML = `
+          <div class="empty-state">
+            <div class="glyph">🛒</div>
+            Your cart is empty.
+            <br><br>
+            <a href="dashboard.html" class="btn btn-amber">Browse products</a>
+          </div>`;
+        return;
+      }
+
+      const subtotal = rows.reduce((s,r) => s + r.product.price * r.qty, 0);
+      const delivery = subtotal >= 3000 ? 0 : 99;
+      const total = subtotal + delivery;
+
+      content.innerHTML = `
+        <div class="cart-layout">
+          <div class="card" style="padding:8px 20px;">
+            ${rows.map(r => `
+              <div class="cart-item" data-id="${r.product.id}">
+                <div class="cart-art" style="background:${r.product.color}">${r.product.art}</div>
+                <div>
+                  <div class="cart-item-name">${escapeHtml(r.product.name)}</div>
+                  <div class="cart-item-cat">${r.product.category} · ${formatPrice(r.product.price)} each</div>
+                </div>
+                <div class="qty-control">
+                  <button type="button" class="qty-dec">−</button>
+                  <span>${r.qty}</span>
+                  <button type="button" class="qty-inc">+</button>
+                </div>
+                <div style="display:flex; align-items:center; gap:14px;">
+                  <span class="price-tag">${(r.product.price * r.qty).toLocaleString('en-IN')}</span>
+                  <button type="button" class="btn btn-danger small remove-btn">Remove</button>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+
+          <div class="card" style="padding:22px 24px;">
+            <h3 style="font-size:1.05rem;">Order summary</h3>
+            <div class="summary-row"><span>Subtotal</span><span class="mono">${formatPrice(subtotal)}</span></div>
+            <div class="summary-row"><span>Delivery</span><span class="mono">${delivery === 0 ? 'Free' : formatPrice(delivery)}</span></div>
+            <div class="summary-row total"><span>Total</span><span>${formatPrice(total)}</span></div>
+            <a href="checkout.html" class="btn btn-amber btn-block" style="margin-top:16px;">Proceed to checkout</a>
+          </div>
+        </div>
+      `;
+
+      content.querySelectorAll('.qty-inc').forEach(btn => btn.addEventListener('click', (e) => changeQty(e, 1)));
+      content.querySelectorAll('.qty-dec').forEach(btn => btn.addEventListener('click', (e) => changeQty(e, -1)));
+      content.querySelectorAll('.remove-btn').forEach(btn => btn.addEventListener('click', (e) => {
+        const id = e.target.closest('.cart-item').dataset.id;
+        let items = Store.getCartFor(session.userId).filter(i => i.productId !== id);
+        Store.saveCartFor(session.userId, items);
+        toast('Removed from cart');
+        renderUserNav('cart');
+        renderCart();
+      }));
+
+      function changeQty(e, delta){
+        const id = e.target.closest('.cart-item').dataset.id;
+        const p = products.find(pr => pr.id === id);
+        let items = Store.getCartFor(session.userId);
+        const item = items.find(i => i.productId === id);
+        if(!item) return;
+        item.qty = Math.max(1, Math.min(p.stock, item.qty + delta));
+        Store.saveCartFor(session.userId, items);
+        renderUserNav('cart');
+        renderCart();
+      }
+    }
+  }
+</script>
+</body>
+</html>

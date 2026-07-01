@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Create account — Shoply</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="bar">
+    <a href="index.html" class="brand">Shoply<span class="dot">.</span></a>
+    <div class="nav-links">
+      <a href="login.html">Log in</a>
+    </div>
+  </div>
+</nav>
+
+<main class="auth-shell">
+  <div class="narrow">
+    <div class="card auth-card">
+      <div class="auth-eyebrow">New here</div>
+      <h1 style="font-size:1.6rem;">Create your account</h1>
+
+      <div class="error-box" id="error-box"></div>
+
+      <form id="register-form" novalidate>
+        <div class="field">
+          <label for="name">Full name</label>
+          <input type="text" id="name" required autocomplete="name" placeholder="Aditi Sharma">
+        </div>
+        <div class="field">
+          <label for="email">Email address</label>
+          <input type="email" id="email" required autocomplete="email" placeholder="you@example.com">
+        </div>
+        <div class="field">
+          <label for="phone">Phone number</label>
+          <input type="tel" id="phone" required placeholder="98765 43210">
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input type="password" id="password" required minlength="6" autocomplete="new-password" placeholder="At least 6 characters">
+        </div>
+        <div class="field">
+          <label for="confirm">Confirm password</label>
+          <input type="password" id="confirm" required minlength="6" autocomplete="new-password">
+        </div>
+        <button type="submit" class="btn btn-amber btn-block">Create account</button>
+      </form>
+
+      <div class="auth-foot">Already have an account? <a href="login.html" style="color:var(--amber-dark); font-weight:600;">Log in</a></div>
+    </div>
+  </div>
+</main>
+
+<script src="js/app.js"></script>
+<script>
+  const form = document.getElementById('register-form');
+  const errorBox = document.getElementById('error-box');
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    errorBox.classList.remove('show');
+
+    const name = document.getElementById('name').value.trim();
+    const email = document.getElementById('email').value.trim();
+    const phone = document.getElementById('phone').value.trim();
+    const password = document.getElementById('password').value;
+    const confirm = document.getElementById('confirm').value;
+
+    if(password !== confirm){
+      errorBox.textContent = 'Passwords do not match.';
+      errorBox.classList.add('show');
+      return;
+    }
+    if(password.length < 6){
+      errorBox.textContent = 'Password must be at least 6 characters.';
+      errorBox.classList.add('show');
+      return;
+    }
+
+    const result = Auth.register({ name, email, password, phone, address:'' });
+    if(result.error){
+      errorBox.textContent = result.error;
+      errorBox.classList.add('show');
+      return;
+    }
+    window.location.href = 'dashboard.html';
+  });
+</script>
+</body>
+</html>

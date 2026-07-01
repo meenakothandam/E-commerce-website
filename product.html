@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Product — Shoply</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<nav class="topnav" id="topnav"></nav>
+
+<main class="wrap" id="main-content"></main>
+
+<script src="js/app.js"></script>
+<script>
+  const session = Auth.requireRole('user');
+
+  if(session){
+    renderUserNav('dashboard');
+
+    const params = new URLSearchParams(window.location.search);
+    const productId = params.get('id');
+    const product = Store.getProduct(productId);
+    const main = document.getElementById('main-content');
+
+    if(!product){
+      main.innerHTML = `<div class="empty-state"><div class="glyph">📦</div>We couldn't find that product.<br><br><a href="dashboard.html" class="btn btn-outline">Back to shop</a></div>`;
+    } else {
+      main.innerHTML = `
+        <div style="padding-top:20px;">
+          <a href="dashboard.html" style="font-size:.85rem; color:var(--muted);">← Back to shop</a>
+        </div>
+        <div class="detail-grid">
+          <div class="detail-art" style="background:${product.color}">${product.art}</div>
+          <div class="detail-info">
+            <div class="product-cat">${product.category}</div>
+            <h1>${escapeHtml(product.name)}</h1>
+            <div class="detail-price">${formatPrice(product.price)}</div>
+            <p class="detail-desc">${escapeHtml(product.description)}</p>
+
+            ${product.stock === 0 ? `
+              <p class="stock-note low" style="font-size:.9rem; margin-bottom:20px;">Currently out of stock.</p>
+              <button class="btn btn-ghost" disabled>Out of stock</button>
+            ` : `
+              <p class="stock-note" style="font-size:.9rem; margin-bottom:4px;">${product.stock} in stock</p>
+              <div class="qty-row">
+                <div class="qty-control">
+                  <button type="button" id="qty-minus">−</button>
+                  <span id="qty-value">1</span>
+                  <button type="button" id="qty-plus">+</button>
+                </div>
+              </div>
+              <button class="btn btn-amber" id="add-to-cart-btn">Add to cart</button>
+            `}
+          </div>
+        </div>
+      `;
+
+      if(product.stock > 0){
+        let qty = 1;
+        const qtyValue = document.getElementById('qty-value');
+        document.getElementById('qty-minus').addEventListener('click', () => {
+          qty = Math.max(1, qty - 1);
+          qtyValue.textContent = qty;
+        });
+        document.getElementById('qty-plus').addEventListener('click', () => {
+          qty = Math.min(product.stock, qty + 1);
+          qtyValue.textContent = qty;
+        });
+        document.getElementById('add-to-cart-btn').addEventListener('click', () => {
+          const items = Store.getCartFor(session.userId);
+          const existing = items.find(i => i.productId === product.id);
+          if(existing){
+            existing.qty = Math.min(product.stock, existing.qty + qty);
+          } else {
+            items.push({ productId: product.id, qty });
+          }
+          Store.saveCartFor(session.userId, items);
+          toast(`Added ${qty} × ${product.name} to your cart`);
+          renderUserNav('dashboard');
+        });
+      }
+    }
+  }
+</script>
+</body>
+</html>

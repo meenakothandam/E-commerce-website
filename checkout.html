@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Checkout — Shoply</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<nav class="topnav" id="topnav"></nav>
+
+<main class="wrap" style="padding-bottom:70px;">
+  <div class="page-head">
+    <div>
+      <h1>Checkout</h1>
+      <div class="sub">Confirm your details and delivery address</div>
+    </div>
+  </div>
+
+  <div id="checkout-content"></div>
+</main>
+
+<script src="js/app.js"></script>
+<script>
+  const session = Auth.requireRole('user');
+
+  if(session){
+    renderUserNav('cart');
+
+    const items = Store.getCartFor(session.userId);
+    const products = Store.getProducts();
+    const rows = items.map(i => {
+      const p = products.find(pr => pr.id === i.productId);
+      return p ? { ...i, product: p } : null;
+    }).filter(Boolean);
+
+    const content = document.getElementById('checkout-content');
+
+    if(rows.length === 0){
+      content.innerHTML = `
+        <div class="empty-state">
+          <div class="glyph">🛒</div>
+          Your cart is empty — add something before checking out.
+          <br><br>
+          <a href="dashboard.html" class="btn btn-amber">Browse products</a>
+        </div>`;
+    } else {
+      const user = Store.getUsers().find(u => u.id === session.userId);
+      const subtotal = rows.reduce((s,r) => s + r.product.price * r.qty, 0);
+      const delivery = subtotal >= 3000 ? 0 : 99;
+      const total = subtotal + delivery;
+
+      content.innerHTML = `
+        <div class="cart-layout">
+          <div class="card" style="padding:26px 28px;">
+            <h3 style="font-size:1.05rem; margin-bottom:18px;">Delivery details</h3>
+            <form id="checkout-form" novalidate>
+              <div class="row-2">
+                <div class="field">
+                  <label for="full-name">Full name</label>
+                  <input type="text" id="full-name" required value="${escapeHtml(user.name)}">
+                </div>
+                <div class="field">
+                  <label for="phone">Phone number</label>
+                  <input type="tel" id="phone" required value="${escapeHtml(user.phone||'')}">
+                </div>
+              </div>
+              <div class="field">
+                <label for="address">Delivery address</label>
+                <textarea id="address" required placeholder="House / street, area, city, PIN code">${escapeHtml(user.address||'')}</textarea>
+              </div>
+
+              <h3 style="font-size:1.05rem; margin:22px 0 14px;">Payment method</h3>
+              <div class="card" style="padding:14px 16px; border-color:var(--sage); background:#F5F8F5;">
+                <label style="display:flex; align-items:center; gap:10px; font-weight:600; font-size:.92rem;">
+                  <input type="radio" name="payment" checked style="width:auto;">
+                  Cash on delivery — pay when your order arrives
+                </label>
+              </div>
+
+              <button type="submit" class="btn btn-amber btn-block" style="margin-top:24px;">Place order · ${formatPrice(total)}</button>
+            </form>
+          </div>
+
+          <div class="card" style="padding:22px 24px;">
+            <h3 style="font-size:1.05rem; margin-bottom:12px;">Order summary</h3>
+            ${rows.map(r => `
+              <div class="summary-row">
+                <span>${escapeHtml(r.product.name)} × ${r.qty}</span>
+                <span class="mono">${formatPrice(r.product.price * r.qty)}</span>
+              </div>
+            `).join('')}
+            <div class="summary-row"><span>Subtotal</span><span class="mono">${formatPrice(subtotal)}</span></div>
+            <div class="summary-row"><span>Delivery</span><span class="mono">${delivery === 0 ? 'Free' : formatPrice(delivery)}</span></div>
+            <div class="summary-row total"><span>Total</span><span>${formatPrice(total)}</span></div>
+          </div>
+        </div>
+      `;
+
+      document.getElementById('checkout-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+
+        const fullName = document.getElementById('full-name').value.trim();
+        const phone = document.getElementById('phone').value.trim();
+        const address = document.getElementById('address').value.trim();
+        if(!fullName || !phone || !address){
+          toast('Please fill in all delivery details', 'error');
+          return;
+        }
+
+        // persist updated contact info on the user profile
+        const users = Store.getUsers();
+        const u = users.find(x => x.id === session.userId);
+        u.phone = phone; u.address = address; u.name = fullName;
+        Store.saveUsers(users);
+
+        // reduce stock
+        const allProducts = Store.getProducts();
+        rows.forEach(r => {
+          const p = allProducts.find(pr => pr.id === r.product.id);
+          if(p) p.stock = Math.max(0, p.stock - r.qty);
+        });
+        Store.saveProducts(allProducts);
+
+        // create order
+        const order = {
+          id: uid('o'),
+          userId: session.userId,
+          customerName: fullName,
+          phone, address,
+          items: rows.map(r => ({ productId:r.product.id, name:r.product.name, price:r.product.price, qty:r.qty })),
+          subtotal, delivery, total,
+          paymentMethod: 'Cash on delivery',
+          status: 'Placed',
+          date: new Date().toISOString()
+        };
+        const orders = Store.getOrders();
+        orders.push(order);
+        Store.saveOrders(orders);
+
+        // clear cart
+        Store.saveCartFor(session.userId, []);
+
+        toast('Your order has been placed!');
+        setTimeout(() => { window.location.href = 'orders.html?justPlaced=' + order.id; }, 700);
+      });
+    }
+  }
+</script>
+</body>
+</html>
